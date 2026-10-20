@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conferência do Caixa</title>
+<meta name="description" content="Concilia pedidos de compra escaneados (QR do slip) com o cash report do SAP. Tudo roda no navegador.">
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --card: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #6b6a65;
+    --line: #e2e0d9;
+    --accent: #1f5f4a;
+    --accent-ink: #ffffff;
+    --ok-bg: #e3f2e8;  --ok-ink: #1d5c35;
+    --warn-bg: #fdf3d6; --warn-ink: #7a5a00;
+    --bad-bg: #fbe3e1;  --bad-ink: #8c2a20;
+    --drop: #faf9f6;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --card: #201f1d; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
+      --accent: #5fb391; --accent-ink: #0f1a15;
+      --ok-bg: #173523; --ok-ink: #9ad9b0;
+      --warn-bg: #3a2f10; --warn-ink: #f0d27a;
+      --bad-bg: #3d1b18; --bad-ink: #f3a49b;
+      --drop: #1b1a18;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --card: #201f1d; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
+    --accent: #5fb391; --accent-ink: #0f1a15;
+    --ok-bg: #173523; --ok-ink: #9ad9b0;
+    --warn-bg: #3a2f10; --warn-ink: #f0d27a;
+    --bad-bg: #3d1b18; --bad-ink: #f3a49b;
+    --drop: #1b1a18;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); }
+  .privacy {
+    display: inline-flex; gap: 8px; align-items: center; margin-top: 12px;
+    font-size: 13px; color: var(--ok-ink); background: var(--ok-bg);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+  @media (max-width: 720px) { .inputs { grid-template-columns: 1fr; } }
+  .drop {
+    position: relative; background: var(--drop); border: 2px dashed var(--line); border-radius: 12px;
+    padding: 20px; min-height: 120px; cursor: pointer; transition: border-color .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); }
+  .drop.filled { border-style: solid; border-color: var(--accent); background: var(--card); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop .step { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .drop .title { font-weight: 600; font-size: 16px; margin-top: 2px; }
+  .drop .hint { color: var(--muted); font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+  .options { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+  .options label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+  details { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .adv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+  .adv label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .adv input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .actions { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  button {
+    font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 10px 20px; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
+  }
+  button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .status { color: var(--muted); font-size: 14px; }
+  .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 12px; display: none; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 28px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .tile .n { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile .l { color: var(--muted); font-size: 13px; }
+  .tile .v { font-size: 13px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile.ok .n { color: var(--ok-ink); } .tile.warn .n { color: var(--warn-ink); } .tile.bad .n { color: var(--bad-ink); }
+  .tablewrap { margin-top: 20px; overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.qr { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad-ink); }
+  .thumb { width: 44px; height: 62px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; display: block; }
+  .err { margin-top: 16px; padding: 12px 14px; border-radius: 10px; background: var(--bad-bg); color: var(--bad-ink); display: none; white-space: pre-wrap; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+  dialog { border: 0; border-radius: 12px; padding: 0; max-width: 92vw; max-height: 92vh; background: var(--card); }
+  dialog img { display: block; max-width: 92vw; max-height: 88vh; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Conferência do Caixa</h1>
+    <p>Lê o QR de cada pedido de compra, encontra a transação no cash report do SAP e confere o valor.</p>
+    <span class="privacy">🔒 Os arquivos são processados neste navegador. Nada é enviado para a internet.</span>
+  </header>
+
+  <section class="inputs">
+    <div class="drop" id="dropPdf">
+      <input type="file" id="filePdf" accept="application/pdf" multiple>
+      <div class="step">Passo 1</div>
+      <div class="title">PDF dos pedidos do dia</div>
+      <div class="hint" id="hintPdf">Arraste aqui ou clique para escolher. Um pedido por página.</div>
+    </div>
+    <div class="drop" id="dropXls">
+      <input type="file" id="fileXls" accept=".xlsx,.xls,.csv">
+      <div class="step">Passo 2</div>
+      <div class="title">Cash report do SAP</div>
+      <div class="hint" id="hintXls">Excel (.xlsx, .xls) ou .csv exportado do SAP.</div>
+    </div>
+  </section>
+
+  <div class="options">
+    <label><input type="checkbox" id="optOcr" checked> Ler o valor escrito no slip (OCR, mais lento)</label>
+  </div>
+
+  <details>
+    <summary>Configurações avançadas</summary>
+    <div class="adv">
+      <label>Coluna da transação (vazio = automático)<input id="cfgTr" placeholder="ex.: Nº Transação"></label>
+      <label>Coluna do valor (vazio = automático)<input id="cfgVal" placeholder="ex.: Montante BRL"></label>
+      <label>Coluna do código do QR (vazio = todas)<input id="cfgCod" placeholder="ex.: Nº Pedido"></label>
+      <label>Tolerância de valor (R$)<input id="cfgTol" type="number" step="0.01" value="0.01"></label>
+    </div>
+  </details>
+
+  <div class="actions">
+    <button id="btnRun" disabled>Conferir</button>
+    <button id="btnXlsx" class="secondary" disabled>Baixar Excel</button>
+    <span class="status" id="status"></span>
+  </div>
+  <div class="bar" id="bar"><div></div></div>
+  <div class="err" id="err"></div>
+
+  <section class="summary" id="summary"></section>
+  <div class="tablewrap" id="tablewrap" style="display:none">
+    <table>
+      <thead><tr>
+        <th>Pág.</th><th></th><th>Status</th><th>Pedido</th><th>Transação</th>
+        <th style="text-align:right">Valor pedido</th><th style="text-align:right">Valor caixa</th>
+        <th style="text-align:right">Diferença</th><th>QR lido</th><th>Como casou</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <footer>Os arquivos ficam no seu computador: o site só baixa as bibliotecas de leitura (PDF, QR, Excel e OCR) na primeira vez.</footer>
+</main>
+<dialog id="zoom"><img id="zoomImg" alt="Página do PDF"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+"use strict";
+// ============================================================================
+// CONFIGURACAO
+// ============================================================================
+const DPI = 300;
+const TESS = {
+  workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js",
+  corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1",
+  langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por@1.0.0/4.0.0_best_int",
+};
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const ZXING_WASM = "https://cdn.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/reader/zxing_reader.wasm";
+
+// carrega o leitor de QR uma vez; se falhar, a conferencia para com aviso (nunca marca tudo como ilegivel)
+let zxingPronto = null;
+function prepararLeitorQR() {
+  if (!zxingPronto) {
+    zxingPronto = ZXingWASM.prepareZXingModule({
+      overrides: { locateFile: (path, prefix) => (path.endsWith(".wasm") ? ZXING_WASM : prefix + path) },
+      fireImmediately: true,
+    }).catch((e) => { zxingPronto = null; throw e; });
+  }
+  return zxingPronto;
+}
+
+const TRANS_RE = /(?<!\d)42000\d{10}(?!\d)/g;
+const TRANS_FULL = /^42000\d{10}$/;
+const VAL_RE = /\d{1,3}(?:\.\d{3})*,\d{2}/g;
+
+// ============================================================================
+// UTILITARIOS
+// ============================================================================
+const $ = (id) => document.getElementById(id);
+const norm = (s) => String(s ?? "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toUpperCase();
+const chaveBusca = (s) => norm(s).replace(/[^0-9A-Z]/g, "");
+const soDigitos = (s) => String(s ?? "").replace(/\D/g, "");
+const fmtBRL = (v) => v == null || isNaN(v) ? "" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function paraFloat(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  let s = String(v).replace(/[^\d,.\-]/g, "");
+  if (!/\d/.test(s)) return null;
+  if (s.includes(",") && s.includes(".")) {
+    s = s.lastIndexOf(",") > s.lastIndexOf(".") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  } else if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+function setStatus(t) { $("status").textContent = t; }
+function setProgress(p) {
+  $("bar").style.display = p == null ? "none" : "block";
+  $("bar").firstElementChild.style.width = `${Math.round((p || 0) * 100)}%`;
+}
+function showError(t) { $("err").style.display = t ? "block" : "none"; $("err").textContent = t || ""; }
+
+// ============================================================================
+// LEITURA DO QR (zxing-cpp em WebAssembly, com tentativas extras)
+// ============================================================================
+// so QR Code: ler outros formatos gera "codigos" falsos a partir do ruido do papel escaneado
+const QR_OPTS = { formats: ["QRCode", "MicroQRCode"], tryHarder: true, tryRotate: true, tryInvert: true, tryDownscale: true, maxNumberOfSymbols: 4 };
+
+async function decodificar(imageData) {
+  try {
+    const res = await ZXingWASM.readBarcodes(imageData, QR_OPTS);
+    return res.filter((r) => r.isValid && r.text).map((r) => r.text);
+  } catch (e) { console.warn("zxing", e); return []; }
+}
+
+function cinza(imageData) {
+  const { data, width, height } = imageData;
+  const g = new Uint8ClampedArray(width * height);
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) g[j] = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+  return { g, width, height };
+}
+function paraImageData({ g, width, height }) {
+  const out = new ImageData(width, height);
+  for (let j = 0, i = 0; j < g.length; j++, i += 4) { out.data[i] = out.data[i + 1] = out.data[i + 2] = g[j]; out.data[i + 3] = 255; }
+  return out;
+}
+function esticarContraste(c) {
+  const hist = new Uint32Array(256); for (const v of c.g) hist[v]++;
+  const total = c.g.length; let acc = 0, lo = 0, hi = 255;
+  for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > total * 0.01) { lo = i; break; } }
+  acc = 0; for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > total * 0.01) { hi = i; break; } }
+  const k = 255 / Math.max(1, hi - lo);
+  return { ...c, g: c.g.map((v) => Math.max(0, Math.min(255, (v - lo) * k))) };
+}
+function otsu(c) {
+  const hist = new Float64Array(256); for (const v of c.g) hist[v]++;
+  const total = c.g.length; let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, best = 0, thr = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (!wB) continue; const wF = total - wB; if (!wF) break;
+    sumB += t * hist[t]; const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) ** 2; if (between > best) { best = between; thr = t; }
+  }
+  return { ...c, g: c.g.map((v) => (v > thr ? 255 : 0)) };
+}
+function reduzir(c, f) {
+  const w = Math.round(c.width * f), h = Math.round(c.height * f), g = new Uint8ClampedArray(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) g[y * w + x] = c.g[Math.min(c.height - 1, Math.floor(y / f)) * c.width + Math.min(c.width - 1, Math.floor(x / f))];
+  return { g, width: w, height: h };
+}
+
+async function lerQR(imageData) {
+  let achados = await decodificar(imageData);
+  if (achados.length) return [...new Set(achados)];
+  const c = cinza(imageData);
+  const contraste = esticarContraste(c);
+  for (const v of [contraste, otsu(contraste), reduzir(contraste, 0.5), otsu(reduzir(contraste, 0.5))]) {
+    achados = await decodificar(paraImageData(v));
+    if (achados.length) return [...new Set(achados)];
+  }
+  return [];
+}
+
+function candidatosDoQR(conteudo) {
+  const cands = [conteudo.trim()];
+  if (/^https?:\/\//i.test(conteudo)) {
+    try {
+      const u = new URL(conteudo);
+      u.searchParams.forEach((v) => cands.push(v));
+      u.pathname.split("/").filter(Boolean).forEach((s) => cands.push(s));
+    } catch (e) { /* link invalido: segue com o texto */ }
+  }
+  conteudo.split(/[;|&,=:/\s?]+/).forEach((s) => cands.push(s));
+  const vistos = new Set(), saida = [];
+  for (const c of cands) { const k = chaveBusca(c); if (k.length >= 3 && !vistos.has(k)) { vistos.add(k); saida.push(c.trim()); } }
+  return saida;
+}
+
+// ============================================================================
+// TEXTO DA PAGINA (numero do pedido e valor)
+// ============================================================================
+function extrairPedido(texto) {
+  // tolera erro comum de OCR (8 lido como B): "PC-B88400" vira "PC-88400"
+  const m = norm(texto).match(/PEDIDO(?:\s+DE\s+COMPRA)?\s*(?:N[O0]\.?)?\s*[:\-#]?\s*([A-Z]{0,4})(-?)[B]?(\d{3,})/);
+  return m ? m[1] + m[2] + m[3] : "";
+}
+function extrairValor(texto) {
+  const linhas = texto.split(/\r?\n/).map(norm);
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    if (l.includes("TOTAL") && !l.includes("SUBTOTAL")) {
+      let vals = l.match(VAL_RE);
+      if (!vals && i + 1 < linhas.length) vals = linhas[i + 1].match(VAL_RE);
+      if (vals) return paraFloat(vals[vals.length - 1]);
+    }
+  }
+  const todos = (norm(texto).match(VAL_RE) || []).map(paraFloat).filter(Boolean);
+  return todos.length ? Math.max(...todos) : null;
+}
+
+// ============================================================================
+// CASH REPORT DO SAP
+// ============================================================================
+function carregarCashReport(wb, cfg) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const bruto = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: false })
+    .filter((r) => r.some((v) => v != null && String(v).trim() !== ""));
+  const temTr = (v) => TRANS_FULL.test(soDigitos(v));
+  let linhaDados = bruto.findIndex((r) => r.some(temTr));
+  if (linhaDados < 0) throw new Error("Não achei nenhum número de transação (42000 + 10 dígitos) no cash report. Confira se é o arquivo certo.");
+  const cab = linhaDados > 0 ? bruto[linhaDados - 1] : [];
+  const ncol = Math.max(...bruto.slice(linhaDados).map((r) => r.length));
+  const usados = {};
+  const nomes = Array.from({ length: ncol }, (_, j) => {
+    let n = cab[j] != null && String(cab[j]).trim() ? String(cab[j]).trim() : `Coluna_${j + 1}`;
+    usados[n] = (usados[n] || 0) + 1; return usados[n] > 1 ? `${n}_${usados[n]}` : n;
+  });
+  let linhas = bruto.slice(linhaDados);
+
+  const taxa = (j, f) => linhas.filter((r) => f(r[j])).length / Math.max(1, linhas.length);
+  let colTr = nomes.indexOf(cfg.colTr);
+  if (colTr < 0) colTr = nomes.map((_, j) => j).sort((a, b) => taxa(b, temTr) - taxa(a, temTr))[0];
+  linhas = linhas.filter((r) => temTr(r[colTr]));
+
+  let colVal = nomes.indexOf(cfg.colVal);
+  if (colVal < 0) {
+    const dicas = ["VALOR", "MONTANTE", "AMOUNT", "TOTAL", "IMPORTE", "VLR"];
+    let cands = nomes.map((_, j) => j).filter((j) => j !== colTr && dicas.some((d) => norm(nomes[j]).includes(d)));
+    if (!cands.length) cands = nomes.map((_, j) => j).filter((j) => j !== colTr);
+    const taxaNum = (j) => linhas.filter((r) => paraFloat(r[j]) != null).length;
+    colVal = cands.sort((a, b) => taxaNum(b) - taxaNum(a))[0] ?? -1;
+  }
+
+  const transacoes = new Map();
+  linhas.forEach((r, i) => transacoes.set(soDigitos(r[colTr]), i));
+  const colCod = nomes.indexOf(cfg.colCod);
+  const colsBusca = colCod >= 0 ? [colCod] : nomes.map((_, j) => j).filter((j) => j !== colVal);
+  const indice = new Map(), indiceDig = new Map();
+  const add = (m, k, i) => { if (!m.has(k)) m.set(k, new Set()); m.get(k).add(i); };
+  linhas.forEach((r, i) => colsBusca.forEach((j) => {
+    const v = r[j]; if (v == null) return;
+    const k = chaveBusca(v); if (k.length >= 3) add(indice, k, i);
+    const d = soDigitos(v); if (d.length >= 4) add(indiceDig, d, i);
+  }));
+
+  return {
+    nomes, linhas, colTr, colVal, transacoes,
+    linha(i) { return [soDigitos(linhas[i][colTr]), colVal >= 0 ? paraFloat(linhas[i][colVal]) : null]; },
+    buscar(conteudos) {
+      for (const c of conteudos) for (const t of c.replace(/\s/g, "").match(TRANS_RE) || [])
+        if (transacoes.has(t)) return { idx: transacoes.get(t), codigo: t, como: "transação no QR" };
+      for (const c of conteudos) for (const cand of candidatosDoQR(c)) {
+        const s = indice.get(chaveBusca(cand));
+        if (s && s.size === 1) return { idx: [...s][0], codigo: cand, como: "código do QR" };
+        if (s && s.size > 1) return { idx: null, codigo: cand, como: "", ambiguo: s.size };
+      }
+      for (const c of conteudos) for (const cand of candidatosDoQR(c)) {
+        const s = indiceDig.get(soDigitos(cand));
+        if (s && s.size === 1) return { idx: [...s][0], codigo: cand, como: "dígitos do código do QR" };
+      }
+      return { idx: null, codigo: "", como: "" };
+    },
+  };
+}
+
+// ============================================================================
+// PDF: renderiza cada pagina, le o texto, o QR e (opcional) faz OCR
+// ============================================================================
+async function lerPaginas(arquivo, usarOCR, ocrWorker, onPage) {
+  const pdf = await pdfjsLib.getDocument({ data: await arquivo.arrayBuffer() }).promise;
+  const paginas = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const vp = page.getViewport({ scale: DPI / 72 });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+    const tc = await page.getTextContent();
+    let texto = tc.items.map((it) => it.str + (it.hasEOL ? "\n" : " ")).join("");
+    let metodo = "texto";
+    const qr = await lerQR(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    if (texto.trim().length < 40) {
+      metodo = "sem OCR";
+      if (usarOCR && ocrWorker) {
+        try { texto = (await ocrWorker.recognize(canvas)).data.text; metodo = "ocr"; }
+        catch (e) { console.warn("OCR", e); }
+      }
+    }
+    const t = document.createElement("canvas"); const esc = 140 / canvas.width;
+    t.width = 140; t.height = Math.round(canvas.height * esc);
+    t.getContext("2d").drawImage(canvas, 0, 0, t.width, t.height);
+    const z = document.createElement("canvas"); const escZ = Math.min(1, 1400 / canvas.height);
+    z.width = Math.round(canvas.width * escZ); z.height = Math.round(canvas.height * escZ);
+    z.getContext("2d").drawImage(canvas, 0, 0, z.width, z.height);
+
+    paginas.push({ arquivo: arquivo.name, pagina: n, texto, metodo, qr, thumb: t.toDataURL("image/jpeg", 0.7), zoom: z.toDataURL("image/jpeg", 0.8) });
+    canvas.width = canvas.height = 0;
+    onPage(n, pdf.numPages);
+  }
+  return paginas;
+}
+
+// ============================================================================
+// CONCILIACAO
+// ============================================================================
+function conciliar(paginas, cr, tol) {
+  const rows = paginas.map((p) => {
+    const pedido = extrairPedido(p.texto);
+    const valorPed = extrairValor(p.texto);
+    let r = p.qr.length ? cr.buscar(p.qr) : { idx: null, codigo: "", como: "" };
+    if (r.idx == null && !r.ambiguo) {
+      const impresso = (p.texto.replace(/(?<=\d)\s(?=\d)/g, "").match(TRANS_RE) || []).filter((t) => cr.transacoes.has(t));
+      if (impresso.length) r = { idx: cr.transacoes.get(impresso[0]), codigo: impresso[0], como: "transação impressa (texto)" };
+    }
+    const [transacao, valorCx] = r.idx != null ? cr.linha(r.idx) : ["", null];
+    let status, diferenca = null;
+    if (r.idx == null) {
+      status = !p.qr.length ? "QR ilegível" : r.ambiguo ? `Código ${r.codigo} aparece em ${r.ambiguo} transações` : "QR não encontrado no cash report";
+    } else if (valorPed == null || valorCx == null) {
+      status = valorPed == null ? "Encontrado, valor não conferido (valor do slip não lido)" : "Encontrado, valor não conferido (sem valor no caixa)";
+    } else {
+      diferenca = Math.round((valorPed - valorCx) * 100) / 100;
+      status = Math.abs(diferenca) <= tol ? "Conferido" : "Valor divergente";
+    }
+    if (r.idx != null && !p.qr.length) status += " | QR ilegível, casado pelo texto";
+    return { ...p, pedido: pedido || "", qrTxt: p.qr.join(" | "), codigo: r.idx != null ? r.codigo : "", como: r.como || "", transacao: transacao || "", valorPed, valorCx, diferenca, status };
+  });
+  const cont = {}; rows.forEach((r) => { if (r.transacao) cont[r.transacao] = (cont[r.transacao] || 0) + 1; });
+  rows.forEach((r) => { if (r.transacao && cont[r.transacao] > 1) r.status = "Transação repetida em outra página"; });
+  return rows;
+}
+const tipo = (st) => st === "Conferido" || st.startsWith("Conferido |") ? "ok" : st.startsWith("Encontrado") ? "warn" : "bad";
+
+// ============================================================================
+// TELA
+// ============================================================================
+function render(rows, cr) {
+  const soma = (f) => rows.filter(f).reduce((a, r) => a + (r.valorCx || 0), 0);
+  const ok = (r) => tipo(r.status) === "ok", warn = (r) => tipo(r.status) === "warn", bad = (r) => tipo(r.status) === "bad";
+  const totalCx = cr.linhas.reduce((a, _, i) => a + (cr.linha(i)[1] || 0), 0);
+  $("summary").innerHTML = [
+    ["", rows.length, "pedidos no PDF", ""],
+    ["ok", rows.filter(ok).length, "conferidos", `R$ ${fmtBRL(soma(ok))}`],
+    ["warn", rows.filter(warn).length, "achados, valor não conferido", `R$ ${fmtBRL(soma(warn))}`],
+    ["bad", rows.filter(bad).length, "para olhar", ""],
+    ["", cr.linhas.length, "transações no cash report", `R$ ${fmtBRL(totalCx)}`],
+  ].map(([c, n, l, v]) => `<div class="tile ${c}"><div class="n">${n}</div><div class="l">${l}</div>${v ? `<div class="v">${v}</div>` : ""}</div>`).join("");
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  $("tbody").innerHTML = rows.map((r, i) => `<tr>
+    <td>${r.pagina}</td>
+    <td><img class="thumb" src="${r.thumb}" data-i="${i}" alt="Página ${r.pagina}"></td>
+    <td><span class="pill ${tipo(r.status)}">${esc(r.status)}</span></td>
+    <td>${esc(r.pedido) || "N/A"}</td>
+    <td>${esc(r.transacao) || "N/A"}</td>
+    <td class="num">${fmtBRL(r.valorPed)}</td>
+    <td class="num">${fmtBRL(r.valorCx)}</td>
+    <td class="num">${fmtBRL(r.diferenca)}</td>
+    <td class="qr" title="${esc(r.qrTxt)}">${esc(r.qrTxt) || "N/A"}</td>
+    <td>${esc(r.como)}</td>
+  </tr>`).join("");
+  $("tablewrap").style.display = "block";
+  document.querySelectorAll(".thumb").forEach((img) => img.onclick = () => { $("zoomImg").src = rows[+img.dataset.i].zoom; $("zoom").showModal(); });
+}
+$("zoom").onclick = () => $("zoom").close();
+
+// ============================================================================
+// EXCEL DE SAIDA
+// ============================================================================
+async function baixarExcel(rows, cr, nomeBase) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Conferencia", { views: [{ state: "frozen", ySplit: 1 }] });
+  ws.columns = [
+    { header: "Arquivo", key: "arquivo", width: 26 }, { header: "Pagina", key: "pagina", width: 8 },
+    { header: "Status", key: "status", width: 44 }, { header: "Pedido", key: "pedido", width: 14 },
+    { header: "Transacao", key: "transacao", width: 18 }, { header: "Valor_Pedido", key: "valorPed", width: 15 },
+    { header: "Valor_Caixa", key: "valorCx", width: 15 }, { header: "Diferenca", key: "diferenca", width: 12 },
+    { header: "QR_Lido", key: "qrTxt", width: 40 }, { header: "Codigo_Casado", key: "codigo", width: 18 },
+    { header: "Como_Casou", key: "como", width: 24 }, { header: "Leitura_Pagina", key: "metodo", width: 14 },
+  ];
+  const cores = { ok: "FFC6EFCE", warn: "FFFFEB9C", bad: "FFFFC7CE" };
+  rows.forEach((r) => {
+    const row = ws.addRow({ ...r, pedido: r.pedido || "N/A", transacao: r.transacao || "N/A", qrTxt: r.qrTxt || "N/A" });
+    row.eachCell({ includeEmpty: true }, (c) => c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: cores[tipo(r.status)] } });
+    ["valorPed", "valorCx", "diferenca"].forEach((k) => row.getCell(k).numFmt = "#,##0.00");
+  });
+  ws.getRow(1).font = { bold: true };
+
+  const rs = wb.addWorksheet("Resumo");
+  rs.columns = [{ header: "Item", width: 40 }, { header: "Quantidade", width: 12 }, { header: "Valor (R$)", width: 16 }];
+  const grupo = (f) => rows.filter(f);
+  const somaCx = (a) => a.reduce((s, r) => s + (r.valorCx || 0), 0);
+  const conf = grupo((r) => tipo(r.status) === "ok"), enc = grupo((r) => tipo(r.status) === "warn");
+  const div = grupo((r) => r.status === "Valor divergente");
+  [
+    ["Paginas (pedidos) no PDF", rows.length, null],
+    ["Conferidos", conf.length, somaCx(conf)],
+    ["Transacao encontrada, valor nao conferido", enc.length, somaCx(enc)],
+    ["Valor divergente", div.length, div.reduce((s, r) => s + (r.diferenca || 0), 0)],
+    ["QR nao encontrado no cash report", grupo((r) => r.status.startsWith("QR não encontrado")).length, null],
+    ["QR ilegivel", grupo((r) => r.status === "QR ilegível").length, null],
+    ["Transacao repetida", grupo((r) => r.status.startsWith("Transação repetida")).length, null],
+    ["Transacoes no cash report", cr.linhas.length, cr.linhas.reduce((s, _, i) => s + (cr.linha(i)[1] || 0), 0)],
+  ].forEach((l) => rs.addRow(l).getCell(3).numFmt = "#,##0.00");
+  rs.getRow(1).font = { bold: true };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  a.download = `conciliacao_${nomeBase}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// ============================================================================
+// FLUXO
+// ============================================================================
+let pdfFiles = [], xlsFile = null, resultado = null;
+
+function ligarDrop(dropId, inputId, aoEscolher) {
+  const d = $(dropId), inp = $(inputId);
+  inp.onchange = () => aoEscolher([...inp.files]);
+  ["dragenter", "dragover"].forEach((e) => d.addEventListener(e, (ev) => { ev.preventDefault(); d.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((e) => d.addEventListener(e, () => d.classList.remove("over")));
+  d.addEventListener("drop", (ev) => { ev.preventDefault(); aoEscolher([...ev.dataTransfer.files]); });
+}
+function atualizar() {
+  $("btnRun").disabled = !(pdfFiles.length && xlsFile);
+  $("dropPdf").classList.toggle("filled", pdfFiles.length > 0);
+  $("dropXls").classList.toggle("filled", !!xlsFile);
+  $("hintPdf").textContent = pdfFiles.length ? pdfFiles.map((f) => f.name).join(", ") : "Arraste aqui ou clique para escolher. Um pedido por página.";
+  $("hintXls").textContent = xlsFile ? xlsFile.name : "Excel (.xlsx, .xls) ou .csv exportado do SAP.";
+}
+ligarDrop("dropPdf", "filePdf", (fs) => { pdfFiles = fs.filter((f) => /\.pdf$/i.test(f.name)); atualizar(); });
+ligarDrop("dropXls", "fileXls", (fs) => { xlsFile = fs.find((f) => /\.(xlsx|xls|csv)$/i.test(f.name)) || null; atualizar(); });
+
+$("btnRun").onclick = async () => {
+  showError(""); $("btnRun").disabled = true; $("btnXlsx").disabled = true; resultado = null;
+  let ocrWorker = null;
+  try {
+    const cfg = { colTr: $("cfgTr").value.trim(), colVal: $("cfgVal").value.trim(), colCod: $("cfgCod").value.trim() };
+    const tol = parseFloat($("cfgTol").value) || 0.01;
+    setStatus("Carregando o leitor de QR..."); setProgress(0.01);
+    try { await prepararLeitorQR(); }
+    catch (e) { throw new Error("Não consegui carregar o leitor de QR Code. Verifique a conexão com a internet (ou se a rede da empresa bloqueia cdn.jsdelivr.net) e tente de novo."); }
+    setStatus("Lendo o cash report..."); setProgress(0.02);
+    const wb = XLSX.read(await xlsFile.arrayBuffer(), { type: "array" });
+    const cr = carregarCashReport(wb, cfg);
+    setStatus(`Cash report: ${cr.linhas.length} transações (coluna "${cr.nomes[cr.colTr]}", valor em "${cr.nomes[cr.colVal] ?? "?"}")`);
+
+    if ($("optOcr").checked) {
+      setStatus("Preparando o OCR (só demora na primeira vez)...");
+      try { ocrWorker = await Tesseract.createWorker("por", 1, TESS); }
+      catch (e) { console.warn(e); showError("Não consegui carregar o OCR. A conferência segue sem ler o valor do slip."); }
+    }
+    let paginas = [];
+    for (let k = 0; k < pdfFiles.length; k++) {
+      paginas = paginas.concat(await lerPaginas(pdfFiles[k], $("optOcr").checked, ocrWorker, (n, tot) => {
+        setStatus(`Lendo ${pdfFiles[k].name}: página ${n} de ${tot}`);
+        setProgress((k + n / tot) / pdfFiles.length);
+      }));
+    }
+    const rows = conciliar(paginas, cr, tol);
+    resultado = { rows, cr, nome: xlsFile.name.replace(/\.[^.]+$/, "") };
+    render(rows, cr);
+    const nOk = rows.filter((r) => tipo(r.status) === "ok").length;
+    setStatus(`Pronto: ${rows.length} pedidos, ${nOk} conferidos.`);
+    $("btnXlsx").disabled = false;
+  } catch (e) {
+    console.error(e); showError(e.message || String(e)); setStatus("");
+  } finally {
+    setProgress(null); $("btnRun").disabled = !(pdfFiles.length && xlsFile);
+    if (ocrWorker) ocrWorker.terminate();
+  }
+};
+$("btnXlsx").onclick = () => resultado && baixarExcel(resultado.rows, resultado.cr, resultado.nome);
+</script>
+</body>
+</html>
