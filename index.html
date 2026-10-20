@@ -57,18 +57,23 @@
   @media (max-width: 720px) { .inputs { grid-template-columns: 1fr; } }
   .drop {
     position: relative; background: var(--drop); border: 2px dashed var(--line); border-radius: 12px;
-    padding: 20px; min-height: 120px; cursor: pointer; transition: border-color .15s;
+    padding: 20px; min-height: 120px; cursor: pointer; transition: border-color .15s, background .15s;
   }
   .drop:hover, .drop.over { border-color: var(--accent); }
   .drop.filled { border-style: solid; border-color: var(--accent); background: var(--card); }
   .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
   .drop .step { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .drop .title { font-weight: 600; font-size: 16px; margin-top: 2px; }
   .drop .hint { color: var(--muted); font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+  .file-actions { min-height: 30px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 2px 0; color: var(--muted); font-size: 13px; }
+  .file-actions button { padding: 3px 8px; font-size: 12px; }
   .options { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
   .options label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
   details { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-  details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 600; }
+  details summary:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .adv-note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
   .adv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
   .adv label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
   .adv input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
@@ -78,20 +83,29 @@
     background: var(--accent); color: var(--accent-ink);
   }
   button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.text-button { background: transparent; color: var(--muted); border: 1px solid var(--line); }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .status { color: var(--muted); font-size: 14px; }
+  .ready { color: var(--ok-ink); font-weight: 600; }
   .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 12px; display: none; }
   .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 28px; }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-  .tile .n { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-  .tile .l { color: var(--muted); font-size: 13px; }
-  .tile .v { font-size: 13px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tile { appearance: none; text-align: left; font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+  .tile:hover, .tile.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .tile .n { display: block; font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile .l { display: block; color: var(--muted); font-size: 13px; }
+  .tile .v { display: block; font-size: 13px; margin-top: 2px; font-variant-numeric: tabular-nums; }
   .tile.ok .n { color: var(--ok-ink); } .tile.warn .n { color: var(--warn-ink); } .tile.bad .n { color: var(--bad-ink); }
+  .results-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .results-tools input, .results-tools select { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .results-tools input { flex: 1 1 240px; }
+  .results-tools select { flex: 0 1 220px; }
+  .result-count { color: var(--muted); font-size: 13px; margin-left: auto; }
   .tablewrap { margin-top: 20px; overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
   th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  caption { text-align: left; padding: 12px; color: var(--muted); font-weight: 600; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.qr { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
   .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -104,6 +118,15 @@
   dialog { border: 0; border-radius: 12px; padding: 0; max-width: 92vw; max-height: 92vh; background: var(--card); }
   dialog img { display: block; max-width: 92vw; max-height: 88vh; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
+  @media (max-width: 600px) {
+    main { padding: 22px 12px 40px; }
+    header h1 { font-size: 23px; }
+    .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tile { padding: 12px; }
+    .tile .n { font-size: 24px; }
+    .actions > button { flex: 1 1 auto; }
+    .result-count { width: 100%; margin-left: 0; }
+  }
 </style>
 </head>
 <body>
@@ -114,46 +137,68 @@
     <span class="privacy">🔒 Os arquivos são processados neste navegador. Nada é enviado para a internet.</span>
   </header>
 
-  <section class="inputs">
-    <div class="drop" id="dropPdf">
-      <input type="file" id="filePdf" accept="application/pdf" multiple>
-      <div class="step">Passo 1</div>
-      <div class="title">PDF dos pedidos do dia</div>
-      <div class="hint" id="hintPdf">Arraste aqui ou clique para escolher. Um pedido por página.</div>
+  <section class="inputs" aria-label="Arquivos para conferência">
+    <div>
+      <div class="drop" id="dropPdf">
+        <input type="file" id="filePdf" accept="application/pdf,.pdf" multiple aria-label="Selecionar PDFs dos pedidos">
+        <div class="step">Passo 1 de 2</div>
+        <div class="title">PDF dos pedidos do dia</div>
+        <div class="hint" id="hintPdf">Arraste aqui ou clique para escolher. Um pedido por página.</div>
+      </div>
+      <div class="file-actions"><span id="pdfCount">Nenhum arquivo selecionado</span><button type="button" class="text-button" id="clearPdf" hidden>Remover</button></div>
     </div>
-    <div class="drop" id="dropXls">
-      <input type="file" id="fileXls" accept=".xlsx,.xls,.csv">
-      <div class="step">Passo 2</div>
-      <div class="title">Cash report do SAP</div>
-      <div class="hint" id="hintXls">Excel (.xlsx, .xls) ou .csv exportado do SAP.</div>
+    <div>
+      <div class="drop" id="dropXls">
+        <input type="file" id="fileXls" accept=".xlsx,.xls,.csv" aria-label="Selecionar cash report do SAP">
+        <div class="step">Passo 2 de 2</div>
+        <div class="title">Cash report do SAP</div>
+        <div class="hint" id="hintXls">Excel (.xlsx, .xls) ou .csv exportado do SAP.</div>
+      </div>
+      <div class="file-actions"><span id="xlsCount">Nenhum arquivo selecionado</span><button type="button" class="text-button" id="clearXls" hidden>Remover</button></div>
     </div>
   </section>
 
   <div class="options">
     <label><input type="checkbox" id="optOcr" checked> Ler o valor escrito no slip (OCR, mais lento)</label>
+    <label><input type="checkbox" id="optAutoRun"> Conferir automaticamente quando os dois arquivos estiverem prontos</label>
+    <label><input type="checkbox" id="optAutoDownload"> Baixar Excel automaticamente ao terminar</label>
   </div>
 
   <details>
-    <summary>Configurações avançadas</summary>
+    <summary>Ajustar leitura do arquivo SAP (opcional)</summary>
+    <p class="adv-note">Normalmente, não precisa mudar nada: o site tenta identificar as colunas sozinho. Se os resultados estiverem incorretos, informe o nome da coluna como aparece no cabeçalho do Excel. A tolerância define quanto o valor do pedido pode diferir do valor do caixa para ainda ser considerado conferido.</p>
     <div class="adv">
-      <label>Coluna da transação (vazio = automático)<input id="cfgTr" placeholder="ex.: Nº Transação"></label>
-      <label>Coluna do valor (vazio = automático)<input id="cfgVal" placeholder="ex.: Montante BRL"></label>
-      <label>Coluna do código do QR (vazio = todas)<input id="cfgCod" placeholder="ex.: Nº Pedido"></label>
-      <label>Tolerância de valor (R$)<input id="cfgTol" type="number" step="0.01" value="0.01"></label>
+      <label>Coluna da transação<input id="cfgTr" placeholder="Automático — ex.: Nº Transação"></label>
+      <label>Coluna do valor<input id="cfgVal" placeholder="Automático — ex.: Montante BRL"></label>
+      <label>Coluna do código QR<input id="cfgCod" placeholder="Todas — ex.: Nº Pedido"></label>
+      <label>Tolerância de valor (R$)<input id="cfgTol" type="number" min="0" step="0.01" value="0.01" aria-describedby="tolHelp"><span id="tolHelp">Diferença máxima aceita para considerar conferido.</span></label>
     </div>
   </details>
 
   <div class="actions">
     <button id="btnRun" disabled>Conferir</button>
     <button id="btnXlsx" class="secondary" disabled>Baixar Excel</button>
+    <button id="btnExceptions" class="secondary" disabled>Baixar pendências</button>
     <span class="status" id="status"></span>
   </div>
+  <div class="status ready" id="readyStatus" role="status" aria-live="polite">Selecione os PDFs e o cash report para começar.</div>
   <div class="bar" id="bar"><div></div></div>
   <div class="err" id="err"></div>
 
   <section class="summary" id="summary"></section>
+  <div class="results-tools" id="resultsTools" style="display:none">
+    <input id="searchResults" type="search" placeholder="Buscar pedido, transação, QR ou status..." aria-label="Buscar nos resultados">
+    <select id="sortResults" aria-label="Ordenar resultados">
+      <option value="page">Ordenar por página</option>
+      <option value="status">Ordenar por status</option>
+      <option value="order">Ordenar por pedido</option>
+      <option value="difference">Maior diferença primeiro</option>
+    </select>
+    <span class="result-count" id="resultCount" aria-live="polite"></span>
+  </div>
   <div class="tablewrap" id="tablewrap" style="display:none">
     <table>
+      <caption>Resultados da conciliação · selecione um resumo acima para filtrar</caption>
       <thead><tr>
         <th>Pág.</th><th></th><th>Status</th><th>Pedido</th><th>Transação</th>
         <th style="text-align:right">Valor pedido</th><th style="text-align:right">Valor caixa</th>
@@ -163,7 +208,7 @@
     </table>
   </div>
 
-  <footer>Os arquivos ficam no seu computador: o site só baixa as bibliotecas de leitura (PDF, QR, Excel e OCR) na primeira vez.</footer>
+  <footer>Os arquivos ficam no seu computador: o site só baixa as bibliotecas de leitura (PDF, QR, Excel e OCR) na primeira vez. A automação ocorre apenas nesta página; não monitora pastas em segundo plano.</footer>
 </main>
 <dialog id="zoom"><img id="zoomImg" alt="Página do PDF"></dialog>
 
@@ -231,6 +276,34 @@ function setProgress(p) {
   $("bar").firstElementChild.style.width = `${Math.round((p || 0) * 100)}%`;
 }
 function showError(t) { $("err").style.display = t ? "block" : "none"; $("err").textContent = t || ""; }
+const PREFS_KEY = "conferencia-caixa-preferencias";
+function carregarPreferencias() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+    if (typeof prefs.optOcr === "boolean") $("optOcr").checked = prefs.optOcr;
+    if (typeof prefs.optAutoRun === "boolean") $("optAutoRun").checked = prefs.optAutoRun;
+    if (typeof prefs.optAutoDownload === "boolean") $("optAutoDownload").checked = prefs.optAutoDownload;
+    ["cfgTr", "cfgVal", "cfgCod"].forEach((id) => { if (typeof prefs[id] === "string") $(id).value = prefs[id]; });
+    if (typeof prefs.cfgTol === "string" && prefs.cfgTol.trim() && Number(prefs.cfgTol) >= 0) $("cfgTol").value = prefs.cfgTol;
+  } catch (e) { console.warn("Não foi possível carregar as preferências salvas.", e); }
+}
+function salvarPreferencias() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      optOcr: $("optOcr").checked,
+      optAutoRun: $("optAutoRun").checked,
+      optAutoDownload: $("optAutoDownload").checked,
+      cfgTr: $("cfgTr").value,
+      cfgVal: $("cfgVal").value,
+      cfgCod: $("cfgCod").value,
+      cfgTol: $("cfgTol").value,
+    }));
+  } catch (e) {
+    console.warn("Não foi possível salvar as preferências.", e);
+    showError("As preferências não puderam ser salvas neste navegador; a conferência continua normalmente.");
+  }
+}
+carregarPreferencias();
 
 // ============================================================================
 // LEITURA DO QR (zxing-cpp em WebAssembly, com tentativas extras)
@@ -398,7 +471,7 @@ function carregarCashReport(wb, cfg) {
 // ============================================================================
 // PDF: renderiza cada pagina, le o texto, o QR e (opcional) faz OCR
 // ============================================================================
-async function lerPaginas(arquivo, usarOCR, ocrWorker, onPage) {
+async function lerPaginas(arquivo, usarOCR, obterOCR, onPage) {
   const pdf = await pdfjsLib.getDocument({ data: await arquivo.arrayBuffer() }).promise;
   const paginas = [];
   for (let n = 1; n <= pdf.numPages; n++) {
@@ -416,8 +489,11 @@ async function lerPaginas(arquivo, usarOCR, ocrWorker, onPage) {
     const qr = await lerQR(ctx.getImageData(0, 0, canvas.width, canvas.height));
     if (texto.trim().length < 40) {
       metodo = "sem OCR";
-      if (usarOCR && ocrWorker) {
-        try { texto = (await ocrWorker.recognize(canvas)).data.text; metodo = "ocr"; }
+      if (usarOCR && obterOCR) {
+        try {
+          const ocrWorker = await obterOCR();
+          if (ocrWorker) { texto = (await ocrWorker.recognize(canvas)).data.text; metodo = "ocr"; }
+        }
         catch (e) { console.warn("OCR", e); }
       }
     }
@@ -471,31 +547,67 @@ const tipo = (st) => st === "Conferido" || st.startsWith("Conferido |") ? "ok" :
 // ============================================================================
 function render(rows, cr) {
   const soma = (f) => rows.filter(f).reduce((a, r) => a + (r.valorCx || 0), 0);
-  const ok = (r) => tipo(r.status) === "ok", warn = (r) => tipo(r.status) === "warn", bad = (r) => tipo(r.status) === "bad";
+  const ok = (r) => tipo(r.status) === "ok";
+  const divergente = (r) => r.status.startsWith("Valor divergente");
+  const semMatch = (r) => r.status.startsWith("QR ");
+  const repetida = (r) => r.status.startsWith("Transação repetida");
+  const revisar = (r) => tipo(r.status) === "warn";
   const totalCx = cr.linhas.reduce((a, _, i) => a + (cr.linha(i)[1] || 0), 0);
   $("summary").innerHTML = [
-    ["", rows.length, "pedidos no PDF", ""],
-    ["ok", rows.filter(ok).length, "conferidos", `R$ ${fmtBRL(soma(ok))}`],
-    ["warn", rows.filter(warn).length, "achados, valor não conferido", `R$ ${fmtBRL(soma(warn))}`],
-    ["bad", rows.filter(bad).length, "para olhar", ""],
-    ["", cr.linhas.length, "transações no cash report", `R$ ${fmtBRL(totalCx)}`],
-  ].map(([c, n, l, v]) => `<div class="tile ${c}"><div class="n">${n}</div><div class="l">${l}</div>${v ? `<div class="v">${v}</div>` : ""}</div>`).join("");
+    ["", "all", rows.length, "pedidos no PDF", ""],
+    ["ok", "ok", rows.filter(ok).length, "conferidos", `R$ ${fmtBRL(soma(ok))}`],
+    ["bad", "divergent", rows.filter(divergente).length, "valor divergente", ""],
+    ["bad", "unmatched", rows.filter(semMatch).length, "QR sem correspondência", ""],
+    ["bad", "duplicate", rows.filter(repetida).length, "transação repetida", ""],
+    ["warn", "review", rows.filter(revisar).length, "encontrados, valor não conferido", ""],
+    ["", "none", cr.linhas.length, "transações no cash report", `R$ ${fmtBRL(totalCx)}`],
+  ].map(([c, f, n, l, v]) => `<button type="button" class="tile ${c}" data-filter="${f}" aria-pressed="${f === filtroResultados}"><span class="n">${n}</span><span class="l">${l}</span>${v ? `<span class="v">${v}</span>` : ""}</button>`).join("");
 
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
-  $("tbody").innerHTML = rows.map((r, i) => `<tr>
-    <td>${r.pagina}</td>
-    <td><img class="thumb" src="${r.thumb}" data-i="${i}" alt="Página ${r.pagina}"></td>
-    <td><span class="pill ${tipo(r.status)}">${esc(r.status)}</span></td>
-    <td>${esc(r.pedido) || "N/A"}</td>
-    <td>${esc(r.transacao) || "N/A"}</td>
-    <td class="num">${fmtBRL(r.valorPed)}</td>
-    <td class="num">${fmtBRL(r.valorCx)}</td>
-    <td class="num">${fmtBRL(r.diferenca)}</td>
-    <td class="qr" title="${esc(r.qrTxt)}">${esc(r.qrTxt) || "N/A"}</td>
-    <td>${esc(r.como)}</td>
-  </tr>`).join("");
+  const atualizarTabela = () => {
+    const termo = norm($("searchResults").value.trim());
+    const ordem = $("sortResults").value;
+    let visiveis = rows.map((r, i) => ({ r, i })).filter(({ r }) => {
+      const combinaFiltro = filtroResultados === "all" || filtroResultados === "none" ||
+        (filtroResultados === "ok" && ok(r)) ||
+        (filtroResultados === "divergent" && divergente(r)) ||
+        (filtroResultados === "unmatched" && semMatch(r)) ||
+        (filtroResultados === "duplicate" && repetida(r)) ||
+        (filtroResultados === "review" && revisar(r));
+      return combinaFiltro && (!termo || norm([r.pedido, r.transacao, r.qrTxt, r.status].join(" ")).includes(termo));
+    });
+    if (ordem === "status") visiveis.sort((a, b) => a.r.status.localeCompare(b.r.status, "pt-BR"));
+    if (ordem === "order") visiveis.sort((a, b) => a.r.pedido.localeCompare(b.r.pedido, "pt-BR"));
+    if (ordem === "difference") visiveis.sort((a, b) => Math.abs(b.r.diferenca || 0) - Math.abs(a.r.diferenca || 0));
+    $("tbody").innerHTML = visiveis.length ? visiveis.map(({ r, i }) => `<tr>
+      <td>${r.pagina}</td>
+      <td><img class="thumb" src="${r.thumb}" data-i="${i}" alt="Abrir prévia da página ${r.pagina}" tabindex="0" role="button"></td>
+      <td><span class="pill ${tipo(r.status)}">${esc(r.status)}</span></td>
+      <td>${esc(r.pedido) || "N/A"}</td>
+      <td>${esc(r.transacao) || "N/A"}</td>
+      <td class="num">${fmtBRL(r.valorPed)}</td>
+      <td class="num">${fmtBRL(r.valorCx)}</td>
+      <td class="num">${fmtBRL(r.diferenca)}</td>
+      <td class="qr" title="${esc(r.qrTxt)}">${esc(r.qrTxt) || "N/A"}</td>
+      <td>${esc(r.como)}</td>
+    </tr>`).join("") : `<tr><td colspan="10">Nenhum pedido corresponde a esta busca ou filtro.</td></tr>`;
+    $("resultCount").textContent = `Exibindo ${visiveis.length} de ${rows.length} pedidos`;
+    document.querySelectorAll(".thumb").forEach((img) => {
+      const abrir = () => { $("zoomImg").src = rows[+img.dataset.i].zoom; $("zoom").showModal(); };
+      img.onclick = abrir;
+      img.onkeydown = (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); abrir(); } };
+    });
+  };
+  $("summary").querySelectorAll("[data-filter]").forEach((tile) => tile.onclick = () => {
+    filtroResultados = tile.dataset.filter === "none" ? "all" : tile.dataset.filter;
+    render(rows, cr);
+  });
+  $("summary").querySelectorAll("[data-filter]").forEach((tile) => tile.setAttribute("aria-pressed", String(tile.dataset.filter === filtroResultados)));
+  $("searchResults").oninput = atualizarTabela;
+  $("sortResults").onchange = atualizarTabela;
+  $("resultsTools").style.display = "flex";
+  atualizarTabela();
   $("tablewrap").style.display = "block";
-  document.querySelectorAll(".thumb").forEach((img) => img.onclick = () => { $("zoomImg").src = rows[+img.dataset.i].zoom; $("zoom").showModal(); });
 }
 $("zoom").onclick = () => $("zoom").close();
 
@@ -550,7 +662,7 @@ async function baixarExcel(rows, cr, nomeBase) {
 // ============================================================================
 // FLUXO
 // ============================================================================
-let pdfFiles = [], xlsFile = null, resultado = null;
+let pdfFiles = [], xlsFile = null, resultado = null, filtroResultados = "all", executando = false;
 
 function ligarDrop(dropId, inputId, aoEscolher) {
   const d = $(dropId), inp = $(inputId);
@@ -565,16 +677,59 @@ function atualizar() {
   $("dropXls").classList.toggle("filled", !!xlsFile);
   $("hintPdf").textContent = pdfFiles.length ? pdfFiles.map((f) => f.name).join(", ") : "Arraste aqui ou clique para escolher. Um pedido por página.";
   $("hintXls").textContent = xlsFile ? xlsFile.name : "Excel (.xlsx, .xls) ou .csv exportado do SAP.";
+  $("pdfCount").textContent = pdfFiles.length ? `${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"} selecionado${pdfFiles.length === 1 ? "" : "s"}` : "Nenhum arquivo selecionado";
+  $("xlsCount").textContent = xlsFile ? "1 cash report selecionado" : "Nenhum arquivo selecionado";
+  $("clearPdf").hidden = !pdfFiles.length;
+  $("clearXls").hidden = !xlsFile;
+  $("readyStatus").textContent = pdfFiles.length && xlsFile
+    ? "Tudo pronto para conferir."
+    : "Selecione os PDFs e o cash report para começar.";
+  if (pdfFiles.length && xlsFile && $("optAutoRun").checked) executar();
 }
-ligarDrop("dropPdf", "filePdf", (fs) => { pdfFiles = fs.filter((f) => /\.pdf$/i.test(f.name)); atualizar(); });
-ligarDrop("dropXls", "fileXls", (fs) => { xlsFile = fs.find((f) => /\.(xlsx|xls|csv)$/i.test(f.name)) || null; atualizar(); });
+function limparResultado() {
+  resultado = null;
+  $("summary").innerHTML = "";
+  $("resultsTools").style.display = "none";
+  $("tablewrap").style.display = "none";
+  $("btnXlsx").disabled = true;
+  $("btnExceptions").disabled = true;
+  setStatus("");
+}
+ligarDrop("dropPdf", "filePdf", (fs) => {
+  if (executando) return;
+  const invalidos = fs.filter((f) => !/\.pdf$/i.test(f.name));
+  limparResultado();
+  pdfFiles = fs.filter((f) => /\.pdf$/i.test(f.name));
+  showError(invalidos.length ? `Arquivos ignorados (somente PDF): ${invalidos.map((f) => f.name).join(", ")}` : "");
+  atualizar();
+});
+ligarDrop("dropXls", "fileXls", (fs) => {
+  if (executando) return;
+  limparResultado();
+  xlsFile = fs.find((f) => /\.(xlsx|xls|csv)$/i.test(f.name)) || null;
+  showError(xlsFile ? "" : "Selecione um arquivo Excel (.xlsx, .xls) ou CSV para o cash report.");
+  atualizar();
+});
+$("clearPdf").onclick = () => { pdfFiles = []; $("filePdf").value = ""; limparResultado(); atualizar(); };
+$("clearXls").onclick = () => { xlsFile = null; $("fileXls").value = ""; limparResultado(); atualizar(); };
+$("optAutoRun").onchange = () => { if ($("optAutoRun").checked) atualizar(); };
+["optOcr", "optAutoRun", "optAutoDownload", "cfgTr", "cfgVal", "cfgCod", "cfgTol"].forEach((id) => {
+  $(id).addEventListener("change", salvarPreferencias);
+});
 
-$("btnRun").onclick = async () => {
+$("btnRun").onclick = executar;
+async function executar() {
+  if (executando || !pdfFiles.length || !xlsFile) return;
+  executando = true;
+  $("filePdf").disabled = $("fileXls").disabled = $("clearPdf").disabled = $("clearXls").disabled = true;
   showError(""); $("btnRun").disabled = true; $("btnXlsx").disabled = true; resultado = null;
+  $("btnExceptions").disabled = true;
   let ocrWorker = null;
   try {
     const cfg = { colTr: $("cfgTr").value.trim(), colVal: $("cfgVal").value.trim(), colCod: $("cfgCod").value.trim() };
-    const tol = parseFloat($("cfgTol").value) || 0.01;
+    const valorTol = $("cfgTol").value.trim();
+    const tol = Number(valorTol);
+    if (!valorTol || !Number.isFinite(tol) || tol < 0) throw new Error("Informe uma tolerância válida maior ou igual a R$ 0,00.");
     setStatus("Carregando o leitor de QR..."); setProgress(0.01);
     try { await prepararLeitorQR(); }
     catch (e) { throw new Error("Não consegui carregar o leitor de QR Code. Verifique a conexão com a internet (ou se a rede da empresa bloqueia cdn.jsdelivr.net) e tente de novo."); }
@@ -583,32 +738,58 @@ $("btnRun").onclick = async () => {
     const cr = carregarCashReport(wb, cfg);
     setStatus(`Cash report: ${cr.linhas.length} transações (coluna "${cr.nomes[cr.colTr]}", valor em "${cr.nomes[cr.colVal] ?? "?"}")`);
 
-    if ($("optOcr").checked) {
-      setStatus("Preparando o OCR (só demora na primeira vez)...");
-      try { ocrWorker = await Tesseract.createWorker("por", 1, TESS); }
-      catch (e) { console.warn(e); showError("Não consegui carregar o OCR. A conferência segue sem ler o valor do slip."); }
-    }
+    let falhaOCRAvisada = false;
+    const obterOCR = async () => {
+      if (!$("optOcr").checked) return null;
+      if (!ocrWorker) {
+        setStatus("Preparando OCR para uma página sem texto legível...");
+        try { ocrWorker = await Tesseract.createWorker("por", 1, TESS); }
+        catch (e) {
+          console.warn(e);
+          if (!falhaOCRAvisada) {
+            showError("Não consegui carregar o OCR. A conferência segue sem ler o valor do slip.");
+            falhaOCRAvisada = true;
+          }
+          return null;
+        }
+      }
+      return ocrWorker;
+    };
     let paginas = [];
     for (let k = 0; k < pdfFiles.length; k++) {
-      paginas = paginas.concat(await lerPaginas(pdfFiles[k], $("optOcr").checked, ocrWorker, (n, tot) => {
+      paginas = paginas.concat(await lerPaginas(pdfFiles[k], $("optOcr").checked, obterOCR, (n, tot) => {
         setStatus(`Lendo ${pdfFiles[k].name}: página ${n} de ${tot}`);
         setProgress((k + n / tot) / pdfFiles.length);
       }));
     }
+    setStatus("Conciliando pedidos e verificando divergências...");
+    setProgress(0.98);
     const rows = conciliar(paginas, cr, tol);
     resultado = { rows, cr, nome: xlsFile.name.replace(/\.[^.]+$/, "") };
+    filtroResultados = "all";
+    $("searchResults").value = "";
+    $("sortResults").value = "page";
     render(rows, cr);
     const nOk = rows.filter((r) => tipo(r.status) === "ok").length;
     setStatus(`Pronto: ${rows.length} pedidos, ${nOk} conferidos.`);
+    $("readyStatus").textContent = `${rows.length - nOk} item(ns) precisam de atenção.`;
     $("btnXlsx").disabled = false;
+    $("btnExceptions").disabled = !rows.some((r) => tipo(r.status) !== "ok");
+    if ($("optAutoDownload").checked) await baixarExcel(rows, cr, resultado.nome);
   } catch (e) {
     console.error(e); showError(e.message || String(e)); setStatus("");
   } finally {
-    setProgress(null); $("btnRun").disabled = !(pdfFiles.length && xlsFile);
+    setProgress(null); executando = false; $("btnRun").disabled = !(pdfFiles.length && xlsFile);
+    $("filePdf").disabled = $("fileXls").disabled = $("clearPdf").disabled = $("clearXls").disabled = false;
     if (ocrWorker) ocrWorker.terminate();
   }
-};
+}
 $("btnXlsx").onclick = () => resultado && baixarExcel(resultado.rows, resultado.cr, resultado.nome);
+$("btnExceptions").onclick = () => resultado && baixarExcel(
+  resultado.rows.filter((r) => tipo(r.status) !== "ok"),
+  resultado.cr,
+  `${resultado.nome}_pendencias`,
+);
 </script>
 </body>
 </html>
