@@ -1,5 +1,7 @@
 # Conferência do Caixa
 
+**[Abrir a ferramenta](https://wwalexandre.github.io/conferencia-caixa/)**
+
 Ferramenta que roda no navegador para conciliar pedidos de compra com o cash report do SAP. Ela lê o QR code de cada pedido em PDF, encontra a transação correspondente no relatório e confere se o valor bate.
 
 ![Tela inicial da Conferência do Caixa](docs/tela.png)
@@ -43,7 +45,9 @@ Os arquivos são processados no próprio navegador. Nada é enviado para a inter
 
 ## Como usar
 
-Baixe o `index.html` e abra no navegador. Não precisa instalar nada.
+**Online:** https://wwalexandre.github.io/conferencia-caixa/
+
+Ou baixe o `index.html` e abra no navegador. Não precisa instalar nada.
 
 ---
 
