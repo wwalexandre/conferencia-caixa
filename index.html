@@ -276,8 +276,17 @@ function extrairTransacao(n) {
   return solto ? solto[0] : "";
 }
 function extrairNfeRecibo(n) {
-  const m = n.match(/\bNF-?E\b\s*[:;.]?\s*(\d[\d.\s]{4,12})/);
-  const d = m ? soDigitos(m[1]) : ""; return d ? parseInt(d, 10) : null;
+  // so os digitos seguidos logo apos "NFe:". O OCR as vezes junta na mesma linha o texto da
+  // etiqueta do produto (ex.: "000065332 .895 PT"), por isso nada de espacos/pontos aqui.
+  const m = n.match(/\bNF-?E\b\s*[:;.]?\s*(\d{5,})/);
+  if (!m) return null;
+  const d = m[1].length > 9 ? m[1].slice(0, 9) : m[1]; // no recibo a NF-e tem 9 digitos (000065332)
+  return parseInt(d, 10) || null;
+}
+function extrairValorRecibo(texto) {
+  const linhas = texto.split(/\r?\n/).map(norm);
+  for (const l of linhas) if (/TOTAL\s*BRL/.test(l)) { const v = l.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g); if (v) return paraFloat(v[v.length - 1]); }
+  return null;
 }
 function extrairNumeroDanfe(n) {
   const m = n.match(/N[º°O0]\s*\.?\s*(\d{3}\.\d{3}(?:\.\d{3})?)/);
@@ -306,18 +315,23 @@ function analisarPagina(p) {
   const qrs = p.codigos.filter((c) => c.tipo === "qr").map((c) => c.texto.trim())
     .filter((t) => !/FAZENDA|SEFAZ|NFCE|NFE\./i.test(t)); // ignora QR de consulta de nota fiscal
   if (/FLUXO DE CAIXA|ABERTURA\s*:|FECHAMENTO\s*:/.test(n) && !chave && !/NUMERO\s+DE\s+TRANS/.test(n)) {
-    const num = (re) => { const m = n.match(re); return m ? parseInt(m[1], 10) : null; };
-    return { ...p, tipo: "resumo", vendas: num(/VENDAS\s*:?\s*(\d+)/), devolucoes: num(/DEVOLU\w*\s*:?\s*(\d+)/), operacoes: num(/OPERA\w*\s*:?\s*(\d+)/) };
+    // o OCR as vezes le o zero como a letra O
+    const num = (re) => { const m = n.match(re); return m ? parseInt(m[1].replace(/O/g, "0"), 10) : null; };
+    return { ...p, tipo: "resumo", vendas: num(/VENDAS\s*:?\s*([\dO]+)\b/), devolucoes: num(/DEVOLU\w*\s*:?\s*([\dO]+)\b/), operacoes: num(/OPERA\w*\s*:?\s*([\dO]+)\b/) };
   }
   const titulosDanfe = ["DANFE", "DOCUMENTO AUXILIAR DA NOTA", "CHAVE DE ACESSO", "NATUREZA DA OPERA", "CALCULO DO IMPOSTO", "DESTINATARIO", "PROTOCOLO DE AUTORIZA"];
   if (chave || titulosDanfe.filter((t) => n.includes(t)).length >= (n.includes("DANFE") ? 1 : 2)) {
     const nf = chave ? parseInt(chave.slice(25, 34), 10) : extrairNumeroDanfe(n);
-    return { ...p, tipo: "danfe", chave, nf, qrs, valor: extrairValorNota(p.texto) };
+    // o OCR pode estragar "NATUREZA DA OPERACAO"; procura DEVOLU logo depois de NATUREZA
+    // ou as frases tipicas da devolucao (sem confundir com "trocas e devolucoes" do rodape)
+    const iNat = n.indexOf("NATUREZA");
+    const devolucao = (iNat >= 0 && /DEVOLU/.test(n.slice(iNat, iNat + 160))) || /DEVOLUCAO\s+(DE\s+VENDA|POR\s+CONSUMIDOR)|DEVOL\.\s*DE\s*VENDA/.test(n);
+    return { ...p, tipo: "danfe", chave, nf, qrs, devolucao, valor: extrairValorNota(p.texto) };
   }
   const transacao = extrairTransacao(n);
   if (transacao || /VIA BOUTIQUE|NUMERO\s+DE\s+TRANS/.test(n)) {
     // o QR desta pagina e da etiqueta do produto: nao e o do pagamento
-    return { ...p, tipo: "recibo", transacao, nf: extrairNfeRecibo(n) };
+    return { ...p, tipo: "recibo", transacao, nf: extrairNfeRecibo(n), valor: extrairValorRecibo(p.texto) };
   }
   return { ...p, tipo: "outro", qrs };
 }
@@ -368,16 +382,37 @@ async function lerArquivo(arquivo, aoAvancar) {
 function montarVendas(paginas) {
   const recibos = paginas.filter((p) => p.tipo === "recibo"), danfes = paginas.filter((p) => p.tipo === "danfe");
   const usadas = new Set(), vendas = [];
+  const nfExata = new Set(recibos.map((r) => r.nf).filter((x) => x != null));
+  const livre = (x) => !usadas.has(x);
+  const parecido = (a, b) => a != null && b != null && String(a).length >= 5 && String(b).length >= 5 &&
+    (String(a).startsWith(String(b)) || String(b).startsWith(String(a)));
+  const par = new Map();
+  const ligar = (r, d, como) => { usadas.add(d); par.set(r, [d, como]); };
+  // 1a regra: no PDF do caixa o recibo vem SEMPRE logo antes da DANFE da mesma venda.
+  // O numero da nota so confirma; a ligacao so e recusada se a DANFE seguinte for claramente de outro recibo.
   for (const r of recibos) {
-    // 1o pelo numero da nota (aparece no recibo e na DANFE); 2o pela pagina vizinha
-    let d = r.nf != null ? danfes.find((x) => !usadas.has(x) && x.nf === r.nf) : null, como = "pelo nº da nota";
-    if (!d) {
-      d = [r.pagina + 1, r.pagina - 1].map((pg) => danfes.find((x) => !usadas.has(x) && x.pagina === pg && (r.nf == null || x.nf == null))).find(Boolean);
-      como = d ? "pela página vizinha" : "";
-    }
-    if (d) usadas.add(d);
-    vendas.push({ loja: r.loja, arquivo: r.arquivo, recibo: r, danfe: d || null, como,
-      transacao: r.transacao, nf: r.nf ?? d?.nf ?? null, qr: d ? d.qrs.join(" | ") : "", valor: d?.valor ?? null });
+    const prox = danfes.find((x) => livre(x) && x.pagina === r.pagina + 1);
+    if (!prox) continue;
+    const confere = r.nf == null || prox.nf == null || prox.nf === r.nf || parecido(r.nf, prox.nf);
+    if (confere) ligar(r, prox, "página seguinte");
+    else if (!nfExata.has(prox.nf)) ligar(r, prox, "página seguinte, nº da nota diferente");
+  }
+  // 2a regra, so para quem sobrou: numero da nota exato em qualquer pagina
+  for (const r of recibos.filter((x) => !par.has(x))) {
+    const d = r.nf != null ? danfes.find((x) => livre(x) && x.nf === r.nf) : null;
+    if (d) ligar(r, d, "pelo nº da nota");
+  }
+  // 3a regra: nº da nota parecido (erro de OCR) ou mesmo valor
+  for (const r of recibos.filter((x) => !par.has(x))) {
+    const sobra = danfes.filter((x) => livre(x) && !(x.nf != null && nfExata.has(x.nf) && x.nf !== r.nf));
+    let d = sobra.find((x) => parecido(r.nf, x.nf)), como = "nº da nota parecido";
+    if (!d && r.valor != null) { d = sobra.find((x) => x.valor != null && Math.abs(x.valor - r.valor) < 0.005); como = "pelo valor"; }
+    if (d) ligar(r, d, como);
+  }
+  for (const r of recibos) {
+    const [d, como] = par.get(r) || [null, ""];
+    vendas.push({ loja: r.loja, arquivo: r.arquivo, recibo: r, danfe: d, como,
+      transacao: r.transacao, nf: d?.nf ?? r.nf ?? null, qr: d ? d.qrs.join(" | ") : "", valor: d?.valor ?? r.valor ?? null });
   }
   for (const d of danfes.filter((x) => !usadas.has(x)))
     vendas.push({ loja: d.loja, arquivo: d.arquivo, recibo: null, danfe: d, como: "", transacao: "", nf: d.nf, qr: d.qrs.join(" | "), valor: d.valor });
@@ -421,13 +456,15 @@ function avaliar(vendas, sap) {
     if (!v.recibo) p.push(["bad", "Nota sem recibo: transação não encontrada no PDF"]);
     else if (!v.transacao) p.push(["bad", "Número de transação não lido no recibo"]);
     if (v.recibo && !v.danfe) p.push(["bad", "DANFE desta venda não encontrada"]);
+    else if (v.danfe && !v.qr && v.danfe.devolucao) p.push(["warn", "Devolução: não tem comprovante da maquininha (esperado)"]);
     else if (v.danfe && !v.qr) p.push(["bad", "QR do comprovante não lido"]);
     else if (v.danfe && v.danfe.qrs.length > 1) p.push(["warn", "Mais de um QR na página da nota"]);
     if (v.transacao && cont[v.transacao] > 1) p.push(["bad", "Transação repetida no PDF"]);
     if (sap && v.transacao && !v.noSap) p.push(["bad", "Transação não está no SAP"]);
     if (sap && v.noSap && v.valor != null && v.valorSap != null && Math.abs(v.valor - v.valorSap) > TOLERANCIA)
       p.push(["bad", `Valor diferente do SAP (${fmtBRL(v.valor - v.valorSap)})`]);
-    if (v.como === "pela página vizinha") p.push(["warn", "Nota ligada pela página vizinha (confira)"]);
+    if (v.danfe && v.recibo && !["página seguinte", "pelo nº da nota"].includes(v.como))
+      p.push(["warn", `Recibo e nota ligados por: ${v.como} (confira)`]);
     v.problemas = p;
     v.nivel = p.some((x) => x[0] === "bad") ? "bad" : p.length ? "warn" : "ok";
     v.status = p.length ? p.map((x) => x[1]).join("; ")
@@ -445,7 +482,7 @@ let resultado = null;
 function renderizar() {
   const { vendas, resumos, sap } = resultado;
   const n = (f) => vendas.filter(f).length;
-  const vendasResumo = resumos.reduce((a, r) => a + (r.vendas || 0), 0);
+  const vendasResumo = resumos.reduce((a, r) => a + (r.vendas || 0) + (r.devolucoes || 0), 0);
   const recibos = n((v) => v.recibo);
   const tiles = [
     ["", vendas.length, "vendas encontradas no PDF", `${new Set(vendas.map((v) => v.loja)).size} loja(s)`],
@@ -453,7 +490,7 @@ function renderizar() {
     ["warn", n((v) => v.nivel === "warn"), "para confirmar", ""],
     ["bad", n((v) => v.nivel === "bad"), "pendências", ""],
   ];
-  if (resumos.length) tiles.push([recibos === vendasResumo ? "ok" : "warn", `${recibos} / ${vendasResumo}`, "recibos lidos / vendas no resumo do caixa", recibos === vendasResumo ? "bate" : "não bate: confira o PDF"]);
+  if (resumos.length) tiles.push([recibos === vendasResumo ? "ok" : "warn", `${recibos} / ${vendasResumo}`, "recibos lidos / vendas + devoluções no resumo do caixa", recibos === vendasResumo ? "bate" : "não bate: confira o PDF"]);
   if (sap) tiles.push(["", sap.mapa.size, "transações no cash report do SAP", ""]);
   $("summary").innerHTML = tiles.map(([c, num, l, v]) => `<div class="tile ${c}"><div class="n">${num}</div><div class="l">${l}</div>${v ? `<div class="v">${v}</div>` : ""}</div>`).join("");
   $("tools").style.display = "flex"; $("tablewrap").style.display = "block";
