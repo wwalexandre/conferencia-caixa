@@ -283,10 +283,21 @@ function extrairNfeRecibo(n) {
   const d = m[1].length > 9 ? m[1].slice(0, 9) : m[1]; // no recibo a NF-e tem 9 digitos (000065332)
   return parseInt(d, 10) || null;
 }
+// "Total BRL: R$46.400,00" ou, na devolucao, "Total BRL: -R$ 53.500,00"
 function extrairValorRecibo(texto) {
   const linhas = texto.split(/\r?\n/).map(norm);
-  for (const l of linhas) if (/TOTAL\s*BRL/.test(l)) { const v = l.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g); if (v) return paraFloat(v[v.length - 1]); }
+  for (const l of linhas) {
+    if (!/TOTAL\s*BRL/.test(l)) continue;
+    const m = [...l.matchAll(/(-?)\s*R?\s*\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/g)].pop();
+    if (m) { const v = paraFloat(m[2]); return m[1] ? -v : v; }
+  }
   return null;
+}
+// recibo de devolucao: linha "Devolucao", total negativo ou pagamento em "Saldo"
+function reciboDevolucao(texto, valor) {
+  const linhas = texto.split(/\r?\n/).map((l) => norm(l).trim());
+  return (valor != null && valor < 0) || linhas.some((l) => /^DEVOLUCAO\b/.test(l)) ||
+    linhas.some((l) => /FORMA DE PAGAMENTO\s+SALDO\b/.test(l));
 }
 function extrairNumeroDanfe(n) {
   const m = n.match(/N[º°O0]\s*\.?\s*(\d{3}\.\d{3}(?:\.\d{3})?)/);
@@ -333,7 +344,8 @@ function analisarPagina(p) {
   const transacao = extrairTransacao(n);
   if (transacao || /VIA BOUTIQUE|NUMERO\s+DE\s+TRANS/.test(n)) {
     // o QR desta pagina e da etiqueta do produto: nao e o do pagamento
-    return { ...p, tipo: "recibo", transacao, nf: extrairNfeRecibo(n), valor: extrairValorRecibo(p.texto) };
+    const valor = extrairValorRecibo(p.texto);
+    return { ...p, tipo: "recibo", transacao, nf: extrairNfeRecibo(n), valor, devolucao: reciboDevolucao(p.texto, valor) };
   }
   return { ...p, tipo: "outro", qrs };
 }
@@ -418,11 +430,14 @@ function montarVendas(paginas) {
   }
   for (const r of recibos) {
     const [d, como] = par.get(r) || [null, ""];
-    vendas.push({ loja: r.loja, arquivo: r.arquivo, recibo: r, danfe: d, como,
-      transacao: r.transacao, nf: d?.nf ?? r.nf ?? null, qr: d ? d.qrs.join(" | ") : "", valor: d?.valor ?? r.valor ?? null });
+    const devolucao = !!(r.devolucao || d?.devolucao);
+    let valor = d?.valor ?? r.valor ?? null;
+    if (devolucao && valor != null) valor = -Math.abs(valor);
+    vendas.push({ loja: r.loja, arquivo: r.arquivo, recibo: r, danfe: d, como, devolucao,
+      transacao: r.transacao, nf: d?.nf ?? r.nf ?? null, qr: d ? d.qrs.join(" | ") : "", valor });
   }
   for (const d of danfes.filter((x) => !usadas.has(x)))
-    vendas.push({ loja: d.loja, arquivo: d.arquivo, recibo: null, danfe: d, como: "", transacao: "", nf: d.nf, qr: d.qrs.join(" | "), valor: d.valor });
+    vendas.push({ loja: d.loja, arquivo: d.arquivo, recibo: null, danfe: d, como: "", devolucao: !!d.devolucao, transacao: "", nf: d.nf, qr: d.qrs.join(" | "), valor: d.valor });
   return vendas;
 }
 
@@ -462,8 +477,8 @@ function avaliar(vendas, sap) {
     const p = [];
     if (!v.recibo) p.push(["bad", "Nota sem recibo: transação não encontrada no PDF"]);
     else if (!v.transacao) p.push(["bad", "Número de transação não lido no recibo"]);
-    if (v.recibo && !v.danfe) p.push(["bad", "DANFE desta venda não encontrada"]);
-    else if (v.danfe && !v.qr && v.danfe.devolucao) p.push(["warn", "Devolução: não tem comprovante da maquininha (esperado)"]);
+    if (v.devolucao && !v.qr) p.push(["warn", "Devolução: não tem comprovante da maquininha (esperado)"]);
+    else if (v.recibo && !v.danfe) p.push(["bad", "DANFE desta venda não encontrada"]);
     else if (v.danfe && !v.qr) p.push(["bad", "QR do comprovante não lido"]);
     else if (v.danfe && v.danfe.qrs.length > 1) p.push(["warn", "Mais de um QR na página da nota"]);
     if (v.transacao && cont[v.transacao] > 1) p.push(["bad", "Transação repetida no PDF"]);
