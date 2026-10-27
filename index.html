@@ -326,7 +326,9 @@ function analisarPagina(p) {
     // ou as frases tipicas da devolucao (sem confundir com "trocas e devolucoes" do rodape)
     const iNat = n.indexOf("NATUREZA");
     const devolucao = (iNat >= 0 && /DEVOLU/.test(n.slice(iNat, iNat + 160))) || /DEVOLUCAO\s+(DE\s+VENDA|POR\s+CONSUMIDOR)|DEVOL\.\s*DE\s*VENDA/.test(n);
-    return { ...p, tipo: "danfe", chave, nf, qrs, devolucao, valor: extrairValorNota(p.texto) };
+    const valor = extrairValorNota(p.texto);
+    // na DANFE de devolucao o valor vem impresso positivo; para o caixa ele e negativo
+    return { ...p, tipo: "danfe", chave, nf, qrs, devolucao, valor: valor != null && devolucao ? -Math.abs(valor) : valor };
   }
   const transacao = extrairTransacao(n);
   if (transacao || /VIA BOUTIQUE|NUMERO\s+DE\s+TRANS/.test(n)) {
@@ -388,14 +390,19 @@ function montarVendas(paginas) {
     (String(a).startsWith(String(b)) || String(b).startsWith(String(a)));
   const par = new Map();
   const ligar = (r, d, como) => { usadas.add(d); par.set(r, [d, como]); };
-  // 1a regra: no PDF do caixa o recibo vem SEMPRE logo antes da DANFE da mesma venda.
-  // O numero da nota so confirma; a ligacao so e recusada se a DANFE seguinte for claramente de outro recibo.
+  // 1a regra: recibo e DANFE da mesma venda ficam sempre lado a lado, e a ordem e a mesma no PDF
+  // inteiro (DANFE -> recibo ou recibo -> DANFE). Descobre a ordem pelas vendas em que o nº da nota
+  // bate e usa essa ordem para todas. O nº da nota so confirma; a ligacao so e recusada se a DANFE
+  // vizinha for claramente de outro recibo.
+  const bate = (r, x) => x && r.nf != null && x.nf != null && (x.nf === r.nf || parecido(r.nf, x.nf));
+  const votos = (dir) => recibos.filter((r) => bate(r, danfes.find((x) => x.pagina === r.pagina + dir))).length;
+  const dir = votos(-1) > votos(+1) ? -1 : +1;
   for (const r of recibos) {
-    const prox = danfes.find((x) => livre(x) && x.pagina === r.pagina + 1);
+    const prox = danfes.find((x) => livre(x) && x.pagina === r.pagina + dir);
     if (!prox) continue;
     const confere = r.nf == null || prox.nf == null || prox.nf === r.nf || parecido(r.nf, prox.nf);
-    if (confere) ligar(r, prox, "página seguinte");
-    else if (!nfExata.has(prox.nf)) ligar(r, prox, "página seguinte, nº da nota diferente");
+    if (confere) ligar(r, prox, "página vizinha");
+    else if (!nfExata.has(prox.nf)) ligar(r, prox, "página vizinha, nº da nota diferente");
   }
   // 2a regra, so para quem sobrou: numero da nota exato em qualquer pagina
   for (const r of recibos.filter((x) => !par.has(x))) {
@@ -463,7 +470,7 @@ function avaliar(vendas, sap) {
     if (sap && v.transacao && !v.noSap) p.push(["bad", "Transação não está no SAP"]);
     if (sap && v.noSap && v.valor != null && v.valorSap != null && Math.abs(v.valor - v.valorSap) > TOLERANCIA)
       p.push(["bad", `Valor diferente do SAP (${fmtBRL(v.valor - v.valorSap)})`]);
-    if (v.danfe && v.recibo && !["página seguinte", "pelo nº da nota"].includes(v.como))
+    if (v.danfe && v.recibo && !["página vizinha", "pelo nº da nota"].includes(v.como))
       p.push(["warn", `Recibo e nota ligados por: ${v.como} (confira)`]);
     v.problemas = p;
     v.nivel = p.some((x) => x[0] === "bad") ? "bad" : p.length ? "warn" : "ok";
