@@ -1,0 +1,14 @@
+{
+  "name": "conferencia-caixa-tools",
+  "private": true,
+  "description": "Bibliotecas usadas para montar a versao offline (mesmas versoes do site).",
+  "dependencies": {
+    "@tesseract.js-data/por": "1.0.0",
+    "exceljs": "4.4.0",
+    "pdfjs-dist": "3.11.174",
+    "tesseract.js": "5.1.1",
+    "tesseract.js-core": "5.1.1",
+    "xlsx": "0.18.5",
+    "zxing-wasm": "2.2.4"
+  }
+}

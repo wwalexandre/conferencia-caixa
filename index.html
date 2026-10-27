@@ -80,6 +80,7 @@
   .thumb { width: 40px; height: 56px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; display: block; padding: 0; background: none; }
   .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; display: block; }
   footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+  footer a.baixar { color: var(--accent); font-weight: 600; }
   dialog { border: 0; border-radius: 12px; padding: 0; max-width: 94vw; max-height: 94vh; background: var(--card); }
   dialog img { display: block; max-width: 94vw; max-height: 90vh; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
@@ -136,7 +137,8 @@
     </table>
   </div>
 
-  <footer>Os arquivos ficam no seu computador: o site só baixa as bibliotecas de leitura (PDF, QR, Excel e OCR) na primeira vez.</footer>
+  <footer>Os arquivos ficam no seu computador: o site só baixa as bibliotecas de leitura (PDF, QR, Excel e OCR) na primeira vez.
+    <a class="baixar" href="offline/conferencia-caixa-offline.html" download="Conferencia do Caixa (offline).html">Baixar a versão offline</a>: um arquivo só, abre com dois cliques e funciona sem internet.</footer>
 </main>
 <dialog id="zoom" aria-label="Página ampliada"><img id="zoomImg" alt="Página do PDF ampliada"></dialog>
 

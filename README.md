@@ -51,7 +51,19 @@ Os arquivos são processados no próprio navegador. Nada é enviado para a inter
 
 **Online:** https://wwalexandre.github.io/conferencia-caixa/
 
-Ou baixe o `index.html` e abra no navegador. Não precisa instalar nada.
+**Offline (recomendado para uso na empresa):** no rodapé do site, clique em **Baixar a versão offline**, ou baixe [`offline/conferencia-caixa-offline.html`](offline/conferencia-caixa-offline.html). É um arquivo só, com todas as bibliotecas dentro: salve numa pasta, abra com dois cliques no Edge ou no Chrome e use sem internet. Ele não instala nada e não faz nenhum acesso à rede.
+
+## Versão offline: como é gerada
+
+O arquivo offline é montado a partir do `index.html` pelo script `tools/build_offline.py`, que embute as mesmas versões das bibliotecas usadas pelo site:
+
+```
+cd tools
+npm install
+python build_offline.py
+```
+
+Sempre que o `index.html` mudar, gere o arquivo offline de novo e publique os dois juntos.
 
 ---
 
